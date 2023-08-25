@@ -1,0 +1,67 @@
+syntax="proto3";
+
+package progressTracking;
+
+option go_package = ".";
+
+service ProgressTracking{
+    rpc Registration(RegistrationRequest) returns (RegistrationResponse){}
+    rpc LogIn(LogInRequest) returns (LogInResponse){}
+    rpc GetRecords(GetRecordsRequest) returns (GetRecordsResponse){}
+    rpc UpdateRecords(UpdateRecordsRequest) returns (UpdateRecordsResponse){}
+}
+
+message RegistrationRequest{
+    string username = 1;
+    string email = 2;
+    string password = 3;
+    string confirmPassword = 4;
+}
+
+message RegistrationResponse{
+    string token = 1;
+}
+
+message LogInRequest{
+    string username = 1;
+    string password = 2;
+}
+
+message LogInResponse{
+    string token = 1;
+}
+
+message GetRecordsRequest{
+    optional string muscleGroup = 1;
+    optional string exercise = 2;
+    optional RepRange reps = 3;
+}
+
+message GetRecordsResponse{
+    Record record = 1;
+}
+
+message UpdateRecordsRequest {
+    Record record = 1;
+}
+
+message UpdateRecordsResponse {
+    Record record = 1;
+}
+
+message Record {
+    string muscleGroup = 1;
+    string exercise = 2;
+    RepRange reps = 3;
+    repeated Set sets = 4;
+}
+
+message RepRange {
+    uint32 min = 1;
+    uint32 max =2;
+}
+
+message Set {
+    uint32 reps = 1;
+    float weight = 2;
+}
