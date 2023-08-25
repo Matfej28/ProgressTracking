@@ -42,7 +42,10 @@ message GetRecordsResponse{
 }
 
 message UpdateRecordsRequest {
-    Record record = 1;
+    string muscleGroup = 1;
+    string exercise = 2;
+    RepRange reps = 3;
+    repeated Set sets = 4;
 }
 
 message UpdateRecordsResponse {
@@ -53,7 +56,9 @@ message Record {
     string muscleGroup = 1;
     string exercise = 2;
     RepRange reps = 3;
-    repeated Set sets = 4;
+    repeated Set lastTraining = 4;
+    repeated Set beforeLastTraining = 5;
+    Set pr = 6;
 }
 
 message RepRange {
