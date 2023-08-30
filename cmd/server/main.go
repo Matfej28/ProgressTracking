@@ -11,6 +11,7 @@ import (
 	pb "github.com/Matfej28/ProgressTracking/proto"
 
 	"github.com/Matfej28/ProgressTracking/pkg/hashing"
+	"github.com/Matfej28/ProgressTracking/pkg/jwtToken"
 
 	_ "github.com/go-sql-driver/mysql"
 	"google.golang.org/grpc"
@@ -91,14 +92,33 @@ func (s *ProgressTrackingServer) Registration(ctx context.Context, request *pb.R
 	}
 	rows.Close()
 
-	return &pb.RegistrationResponse{Token: password}, nil
+	jwtKey := "secretKey"
+	token := jwtToken.CreateToken(jwtKey, username, email)
+
+	return &pb.RegistrationResponse{Token: token}, nil
 }
+
 func (s *ProgressTrackingServer) LogIn(ctx context.Context, request *pb.LogInRequest) (*pb.LogInResponse, error) {
+	db, err := sql.Open("mysql", fmt.Sprintf("%s:%s@tcp(%s:%s)/%s", "root", "marelli28", "localhost", "3306", "progresstracking"))
+	defer db.Close()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	pingErr := db.Ping()
+	if pingErr != nil {
+		log.Fatal(err)
+	}
+
+	//username:=request.GetUsername()
+
 	return nil, fmt.Errorf("method Registration not implemented")
 }
+
 func (s *ProgressTrackingServer) GetRecords(ctx context.Context, request *pb.GetRecordsRequest) (*pb.GetRecordsResponse, error) {
 	return nil, fmt.Errorf("method Registration not implemented")
 }
+
 func (s *ProgressTrackingServer) UpdateRecords(ctx context.Context, request *pb.UpdateRecordsRequest) (*pb.UpdateRecordsResponse, error) {
 	return nil, fmt.Errorf("method Registration not implemented")
 }
