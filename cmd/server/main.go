@@ -7,8 +7,10 @@ import (
 	"log"
 	"net"
 	"net/mail"
+	"os"
 
 	pb "github.com/Matfej28/ProgressTracking/proto"
+	"github.com/joho/godotenv"
 
 	"github.com/Matfej28/ProgressTracking/pkg/hashing"
 	"github.com/Matfej28/ProgressTracking/pkg/jwtToken"
@@ -18,14 +20,18 @@ import (
 )
 
 const port = ":8080"
-const jwtKey = "secretKey"
 
 type ProgressTrackingServer struct {
 	pb.UnimplementedProgressTrackingServer
 }
 
 func (s *ProgressTrackingServer) Registration(ctx context.Context, request *pb.RegistrationRequest) (*pb.RegistrationResponse, error) {
-	db, err := sql.Open("mysql", fmt.Sprintf("%s:%s@tcp(%s:%s)/%s", "root", "marelli28", "localhost", "3306", "progresstracking"))
+	err := godotenv.Load(".env")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	db, err := sql.Open("mysql", fmt.Sprintf("%s:%s@tcp(%s:%s)/%s", os.Getenv("MYSQL_USER"), os.Getenv("MYSQL_PASSWORD"), os.Getenv("MYSQL_HOST"), os.Getenv("MYSQL_PORT"), os.Getenv("MYSQL_DATABASE")))
 	defer db.Close()
 	if err != nil {
 		log.Fatal(err)
@@ -92,13 +98,18 @@ func (s *ProgressTrackingServer) Registration(ctx context.Context, request *pb.R
 	}
 	rows.Close()
 
-	token := jwtToken.CreateToken(jwtKey, username, email)
+	token := jwtToken.CreateToken(os.Getenv("AUTH_KEY"), username, email)
 
 	return &pb.RegistrationResponse{Token: token}, nil
 }
 
 func (s *ProgressTrackingServer) LogIn(ctx context.Context, request *pb.LogInRequest) (*pb.LogInResponse, error) {
-	db, err := sql.Open("mysql", fmt.Sprintf("%s:%s@tcp(%s:%s)/%s", "root", "marelli28", "localhost", "3306", "progresstracking"))
+	err := godotenv.Load("github.com/Matfej28/ProgressTracking/.env")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	db, err := sql.Open("mysql", fmt.Sprintf("%s:%s@tcp(%s:%s)/%s", os.Getenv("MYSQL_USER"), os.Getenv("MYSQL_PASSWORD"), os.Getenv("MYSQL_HOST"), os.Getenv("MYSQL_PORT"), os.Getenv("MYSQL_DATABASE")))
 	defer db.Close()
 	if err != nil {
 		log.Fatal(err)
@@ -110,7 +121,6 @@ func (s *ProgressTrackingServer) LogIn(ctx context.Context, request *pb.LogInReq
 	}
 
 	email := request.GetEmail()
-	password := request.GetPassword()
 	rows, err := db.Query(fmt.Sprintf("SELECT `username`, `salt`, `hashedpassword` FROM `users` WHERE `email`='%s';", email))
 	if err != nil {
 		log.Fatal(err)
@@ -127,11 +137,12 @@ func (s *ProgressTrackingServer) LogIn(ctx context.Context, request *pb.LogInReq
 	}
 	rows.Close()
 
+	password := request.GetPassword()
 	if !hashing.CheckHashedPassword(hashedPassword, password+salt) {
 		return nil, fmt.Errorf("incorrect email or password")
 	}
 
-	token := jwtToken.CreateToken(jwtKey, username, email)
+	token := jwtToken.CreateToken(os.Getenv("AUTH_KEY"), username, email)
 
 	return &pb.LogInResponse{Token: token}, nil
 }
