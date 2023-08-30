@@ -28,3 +28,11 @@ func HashPassword(password, salt string) string {
 	}
 	return string(hashedPassword)
 }
+
+func CheckHashedPassword(hashedPassword, password string) bool {
+	err := bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(password))
+	if err != nil {
+		return false
+	}
+	return true
+}

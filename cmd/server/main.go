@@ -18,6 +18,7 @@ import (
 )
 
 const port = ":8080"
+const jwtKey = "secretKey"
 
 type ProgressTrackingServer struct {
 	pb.UnimplementedProgressTrackingServer
@@ -76,7 +77,6 @@ func (s *ProgressTrackingServer) Registration(ctx context.Context, request *pb.R
 
 	salt := hashing.GenerateSalt()
 	password = hashing.HashPassword(password, salt)
-	log.Println(salt)
 	_, err = db.Query(fmt.Sprintf("INSERT INTO `users` (`username`, `email`, `salt`, `hashedpassword`) VALUES ('%s', '%s', '%s', '%s');", username, email, salt, password))
 	if err != nil {
 		log.Fatal(err)
@@ -92,7 +92,6 @@ func (s *ProgressTrackingServer) Registration(ctx context.Context, request *pb.R
 	}
 	rows.Close()
 
-	jwtKey := "secretKey"
 	token := jwtToken.CreateToken(jwtKey, username, email)
 
 	return &pb.RegistrationResponse{Token: token}, nil
@@ -110,9 +109,32 @@ func (s *ProgressTrackingServer) LogIn(ctx context.Context, request *pb.LogInReq
 		log.Fatal(err)
 	}
 
-	//username:=request.GetUsername()
+	email := request.GetEmail()
+	password := request.GetPassword()
+	log.Println(email)
+	rows, err := db.Query(fmt.Sprintf("SELECT `username`, `salt`, `hashedpassword` FROM `users` WHERE `email`='%s';", email))
+	if err != nil {
+		log.Fatal(err)
+	}
+	if !rows.Next() {
+		return nil, fmt.Errorf("1 incorrect email or password")
+	}
 
-	return nil, fmt.Errorf("method Registration not implemented")
+	username := ""
+	salt := ""
+	hashedPassword := ""
+	if err := rows.Scan(&username, &salt, &hashedPassword); err != nil {
+		log.Fatal(err)
+	}
+	rows.Close()
+
+	if !hashing.CheckHashedPassword(hashedPassword, password+salt) {
+		return nil, fmt.Errorf("2 incorrect email or password")
+	}
+
+	token := jwtToken.CreateToken(jwtKey, username, email)
+
+	return &pb.LogInResponse{Token: token}, nil
 }
 
 func (s *ProgressTrackingServer) GetRecords(ctx context.Context, request *pb.GetRecordsRequest) (*pb.GetRecordsResponse, error) {
