@@ -8,8 +8,10 @@ import (
 	"net"
 	"net/mail"
 
-	"github.com/Matfej28/ProgressTracking/pkg/hashing"
 	pb "github.com/Matfej28/ProgressTracking/proto"
+
+	"github.com/Matfej28/ProgressTracking/pkg/hashing"
+
 	_ "github.com/go-sql-driver/mysql"
 	"google.golang.org/grpc"
 )
