@@ -111,13 +111,12 @@ func (s *ProgressTrackingServer) LogIn(ctx context.Context, request *pb.LogInReq
 
 	email := request.GetEmail()
 	password := request.GetPassword()
-	log.Println(email)
 	rows, err := db.Query(fmt.Sprintf("SELECT `username`, `salt`, `hashedpassword` FROM `users` WHERE `email`='%s';", email))
 	if err != nil {
 		log.Fatal(err)
 	}
 	if !rows.Next() {
-		return nil, fmt.Errorf("1 incorrect email or password")
+		return nil, fmt.Errorf("incorrect email or password")
 	}
 
 	username := ""
@@ -129,7 +128,7 @@ func (s *ProgressTrackingServer) LogIn(ctx context.Context, request *pb.LogInReq
 	rows.Close()
 
 	if !hashing.CheckHashedPassword(hashedPassword, password+salt) {
-		return nil, fmt.Errorf("2 incorrect email or password")
+		return nil, fmt.Errorf("incorrect email or password")
 	}
 
 	token := jwtToken.CreateToken(jwtKey, username, email)
