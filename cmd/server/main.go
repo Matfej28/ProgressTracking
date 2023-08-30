@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
 	"database/sql"
 	"fmt"
 	"log"
@@ -10,13 +11,35 @@ import (
 
 	pb "github.com/Matfej28/ProgressTracking/proto"
 	_ "github.com/go-sql-driver/mysql"
+	"golang.org/x/crypto/bcrypt"
 	"google.golang.org/grpc"
 )
 
 const port = ":8080"
+const saltSize = 16
 
 type ProgressTrackingServer struct {
 	pb.UnimplementedProgressTrackingServer
+}
+
+func generateSalt() string {
+	var salt = make([]byte, saltSize)
+
+	_, err := rand.Read(salt[:])
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return string(salt)
+}
+
+func hashPassword(password, salt string) string {
+	password = password + salt
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return string(hashedPassword)
 }
 
 func (s *ProgressTrackingServer) Registration(ctx context.Context, request *pb.RegistrationRequest) (*pb.RegistrationResponse, error) {
@@ -70,8 +93,8 @@ func (s *ProgressTrackingServer) Registration(ctx context.Context, request *pb.R
 		return nil, fmt.Errorf("password is not confirmed")
 	}
 
-	salt := hashing.generateSalt()
-	password = hashing.hashPassword(password, salt)
+	salt := generateSalt()
+	password = hashPassword(password, salt)
 	log.Println(salt)
 	_, err = db.Query(fmt.Sprintf("INSERT INTO `users` (`username`, `email`, `salt`, `hashedpassword`) VALUES ('%s', '%s', '%s', '%s');", username, email, salt, password))
 	if err != nil {
