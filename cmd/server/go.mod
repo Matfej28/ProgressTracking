@@ -5,7 +5,6 @@ go 1.18
 require (
 	github.com/Matfej28/ProgressTracking v0.0.0-20230825181726-4eb8ba4610df
 	github.com/go-sql-driver/mysql v1.7.1
-	golang.org/x/crypto v0.12.0
 	google.golang.org/grpc v1.57.0
 )
 
