@@ -10,11 +10,10 @@ import (
 	"os"
 
 	pb "github.com/Matfej28/ProgressTracking/proto"
-	"github.com/joho/godotenv"
 
+	"github.com/Matfej28/ProgressTracking/pkg/dotEnv"
 	"github.com/Matfej28/ProgressTracking/pkg/hashing"
 	"github.com/Matfej28/ProgressTracking/pkg/jwtToken"
-
 	_ "github.com/go-sql-driver/mysql"
 	"google.golang.org/grpc"
 )
@@ -26,11 +25,7 @@ type ProgressTrackingServer struct {
 }
 
 func (s *ProgressTrackingServer) Registration(ctx context.Context, request *pb.RegistrationRequest) (*pb.RegistrationResponse, error) {
-	err := godotenv.Load(".env")
-	if err != nil {
-		log.Fatal(err)
-	}
-
+	dotEnv.LoadDotEnv()
 	db, err := sql.Open("mysql", fmt.Sprintf("%s:%s@tcp(%s:%s)/%s", os.Getenv("MYSQL_USER"), os.Getenv("MYSQL_PASSWORD"), os.Getenv("MYSQL_HOST"), os.Getenv("MYSQL_PORT"), os.Getenv("MYSQL_DATABASE")))
 	defer db.Close()
 	if err != nil {
@@ -104,11 +99,7 @@ func (s *ProgressTrackingServer) Registration(ctx context.Context, request *pb.R
 }
 
 func (s *ProgressTrackingServer) LogIn(ctx context.Context, request *pb.LogInRequest) (*pb.LogInResponse, error) {
-	err := godotenv.Load("github.com/Matfej28/ProgressTracking/.env")
-	if err != nil {
-		log.Fatal(err)
-	}
-
+	dotEnv.LoadDotEnv()
 	db, err := sql.Open("mysql", fmt.Sprintf("%s:%s@tcp(%s:%s)/%s", os.Getenv("MYSQL_USER"), os.Getenv("MYSQL_PASSWORD"), os.Getenv("MYSQL_HOST"), os.Getenv("MYSQL_PORT"), os.Getenv("MYSQL_DATABASE")))
 	defer db.Close()
 	if err != nil {
