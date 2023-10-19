@@ -38,7 +38,7 @@ message GetRecordsRequest{
 }
 
 message GetRecordsResponse{
-    Record record = 1;
+    repeated Record record = 1;
 }
 
 message UpdateRecordsRequest {
