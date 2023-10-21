@@ -10,6 +10,9 @@ import (
 	"os"
 
 	pb "github.com/Matfej28/ProgressTracking/proto"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/Matfej28/ProgressTracking/pkg/dotEnv"
 	"github.com/Matfej28/ProgressTracking/pkg/hashing"
@@ -22,6 +25,26 @@ const port = ":8080"
 
 type ProgressTrackingServer struct {
 	pb.UnimplementedProgressTrackingServer
+}
+
+type repRange struct {
+	Min uint32
+	Max uint32
+}
+
+type set struct {
+	Weight float64
+	Reps   uint32
+}
+
+type Record struct {
+	Username           string
+	MuscleGroup        string
+	Exercise           string
+	Reps               repRange
+	LastTraining       []set
+	BeforeLastTraining []set
+	Pr                 set
 }
 
 func (s *ProgressTrackingServer) Registration(ctx context.Context, request *pb.RegistrationRequest) (*pb.RegistrationResponse, error) {
@@ -139,7 +162,43 @@ func (s *ProgressTrackingServer) LogIn(ctx context.Context, request *pb.LogInReq
 }
 
 func (s *ProgressTrackingServer) GetRecords(ctx context.Context, request *pb.GetRecordsRequest) (*pb.GetRecordsResponse, error) {
-	return nil, fmt.Errorf("method Registration not implemented")
+	dotEnv.LoadDotEnv()
+	err := jwtToken.CheckToken("AUTH_KEY", ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	username, err := jwtToken.UsernameFromToken("AUTH_KEY", ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	clientOpts := options.Client().ApplyURI("mongodb://localhost:27017/?connect=direct")
+	client, err := mongo.Connect(context.TODO(), clientOpts)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	defer func() error {
+		if err := client.Disconnect(ctx); err != nil {
+			return err
+		}
+		return nil
+	}()
+
+	coll := client.Database("ProgressTracking").Collection("ProgressTracking")
+	filter := bson.D{{"username", username}}
+
+	var record Record
+	err = coll.FindOne(context.TODO(), filter).Decode(&record)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return nil, fmt.Errorf("the field that you want to find does not exist")
+		}
+		return nil, err
+	}
+	log.Println(record)
+	return &pb.GetRecordsResponse{}, nil
 }
 
 func (s *ProgressTrackingServer) UpdateRecords(ctx context.Context, request *pb.UpdateRecordsRequest) (*pb.UpdateRecordsResponse, error) {

@@ -60,3 +60,28 @@ func CheckToken(jwtKey string, ctx context.Context) error {
 
 	return nil
 }
+
+func UsernameFromToken(jwtKey string, ctx context.Context) (username string, err error) {
+	headers, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return "", fmt.Errorf("no metadata found in context")
+	}
+
+	tokens := headers.Get("token")
+	if len(tokens) < 1 {
+		return "", fmt.Errorf("no token found in metadata")
+	}
+
+	token, err := jwt.ParseWithClaims(tokens[0], &Claims{}, func(token *jwt.Token) (interface{}, error) {
+		return []byte(jwtKey), nil
+	})
+	if err != nil {
+		return "", err
+	}
+
+	if claims, ok := token.Claims.(*Claims); ok {
+		return claims.Username, nil
+	}
+
+	return "", nil
+}
