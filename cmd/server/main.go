@@ -11,6 +11,7 @@ import (
 
 	pb "github.com/Matfej28/ProgressTracking/proto"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
@@ -100,21 +101,11 @@ func (s *ProgressTrackingServer) Registration(ctx context.Context, request *pb.R
 	}
 
 	salt := hashing.GenerateSalt()
-	password = hashing.HashPassword(password, salt)
-	_, err = db.Query(fmt.Sprintf("INSERT INTO `users` (`username`, `email`, `salt`, `hashedpassword`) VALUES ('%s', '%s', '%s', '%s');", username, email, salt, password))
+	hashedPassword := hashing.HashPassword([]byte(password), salt)
+	_, err = db.Query(fmt.Sprintf("INSERT INTO `users` (`username`, `email`, `salt`, `hashedpassword`) VALUES ('%s', '%s', '%s', '%s');", username, email, salt, hashedPassword))
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	rows, err = db.Query(fmt.Sprintf("SELECT `hashedpassword` FROM `users` WHERE `email`='%s';", email))
-	if err != nil {
-		log.Fatal(err)
-	}
-	rows.Next()
-	if err := rows.Scan(&password); err != nil {
-		log.Fatal(err)
-	}
-	rows.Close()
 
 	token := jwtToken.CreateToken(os.Getenv("AUTH_KEY"), username, email)
 
@@ -143,16 +134,15 @@ func (s *ProgressTrackingServer) LogIn(ctx context.Context, request *pb.LogInReq
 		return nil, fmt.Errorf("incorrect email or password")
 	}
 
-	username := ""
-	salt := ""
-	hashedPassword := ""
+	var username string
+	var salt, hashedPassword []byte
 	if err := rows.Scan(&username, &salt, &hashedPassword); err != nil {
 		log.Fatal(err)
 	}
 	rows.Close()
 
 	password := request.GetPassword()
-	if !hashing.CheckHashedPassword(hashedPassword, password+salt) {
+	if !hashing.CheckHashedPassword(hashedPassword, []byte(password), salt) {
 		return nil, fmt.Errorf("incorrect email or password")
 	}
 
@@ -163,12 +153,13 @@ func (s *ProgressTrackingServer) LogIn(ctx context.Context, request *pb.LogInReq
 
 func (s *ProgressTrackingServer) GetRecords(ctx context.Context, request *pb.GetRecordsRequest) (*pb.GetRecordsResponse, error) {
 	dotEnv.LoadDotEnv()
-	err := jwtToken.CheckToken("AUTH_KEY", ctx)
+	key := os.Getenv("AUTH_KEY")
+	err := jwtToken.CheckToken(key, ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	username, err := jwtToken.UsernameFromToken("AUTH_KEY", ctx)
+	username, err := jwtToken.UsernameFromToken(key, ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -187,18 +178,40 @@ func (s *ProgressTrackingServer) GetRecords(ctx context.Context, request *pb.Get
 	}()
 
 	coll := client.Database("ProgressTracking").Collection("ProgressTracking")
-	filter := bson.D{{"username", username}}
 
-	var record Record
-	err = coll.FindOne(context.TODO(), filter).Decode(&record)
+	muscleGroup := request.GetMuscleGroup()
+	exercise := request.GetExercise()
+	reps := request.GetReps()
+	filter := bson.D{{"username", username}}
+	if muscleGroup != "" {
+		filter = append(filter, primitive.E{"muscleGroup", muscleGroup})
+	}
+	if exercise != "" {
+		filter = append(filter, primitive.E{"exercise", exercise})
+	}
+	if reps != nil {
+		filter = append(filter, primitive.E{"reps", reps})
+	}
+
+	var record []*pb.Record
+	cursor, err := coll.Find(context.TODO(), filter)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
 			return nil, fmt.Errorf("the field that you want to find does not exist")
 		}
 		return nil, err
 	}
-	log.Println(record)
-	return &pb.GetRecordsResponse{}, nil
+
+	var index = 0
+	for cursor.Next(ctx) {
+		record = append(record, &pb.Record{})
+		if err := cursor.Decode(record[index]); err != nil {
+			return nil, err
+		}
+		index++
+	}
+
+	return &pb.GetRecordsResponse{Record: record}, nil
 }
 
 func (s *ProgressTrackingServer) UpdateRecords(ctx context.Context, request *pb.UpdateRecordsRequest) (*pb.UpdateRecordsResponse, error) {

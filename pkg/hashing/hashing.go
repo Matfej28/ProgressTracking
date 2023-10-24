@@ -9,7 +9,7 @@ import (
 
 const saltSize = 16
 
-func GenerateSalt() string {
+func GenerateSalt() []byte {
 	var salt = make([]byte, saltSize)
 
 	_, err := rand.Read(salt[:])
@@ -17,20 +17,22 @@ func GenerateSalt() string {
 		log.Fatal(err)
 	}
 
-	return string(salt)
+	return salt
 }
 
-func HashPassword(password, salt string) string {
-	password = password + salt
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+func HashPassword(password, salt []byte) []byte {
+	password = append(password, salt...)
+	hashedPassword, err := bcrypt.GenerateFromPassword(password, bcrypt.DefaultCost)
 	if err != nil {
 		log.Fatal(err)
 	}
-	return string(hashedPassword)
+
+	return hashedPassword
 }
 
-func CheckHashedPassword(hashedPassword, password string) bool {
-	err := bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(password))
+func CheckHashedPassword(hashedPassword, password, salt []byte) bool {
+	password = append(password, salt...)
+	err := bcrypt.CompareHashAndPassword(hashedPassword, password)
 	if err != nil {
 		return false
 	}
