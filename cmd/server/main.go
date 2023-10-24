@@ -181,7 +181,7 @@ func (s *ProgressTrackingServer) GetRecords(ctx context.Context, request *pb.Get
 
 	muscleGroup := request.GetMuscleGroup()
 	exercise := request.GetExercise()
-	reps := request.GetReps()
+	repRange := request.GetReps()
 	filter := bson.D{{"username", username}}
 	if muscleGroup != "" {
 		filter = append(filter, primitive.E{"muscleGroup", muscleGroup})
@@ -189,11 +189,11 @@ func (s *ProgressTrackingServer) GetRecords(ctx context.Context, request *pb.Get
 	if exercise != "" {
 		filter = append(filter, primitive.E{"exercise", exercise})
 	}
-	if reps != nil {
-		filter = append(filter, primitive.E{"reps", reps})
+	if repRange != nil {
+		filter = append(filter, primitive.E{"reps", repRange})
 	}
 
-	var record []*pb.Record
+	var records []*pb.Record
 	cursor, err := coll.Find(context.TODO(), filter)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
@@ -202,19 +202,58 @@ func (s *ProgressTrackingServer) GetRecords(ctx context.Context, request *pb.Get
 		return nil, err
 	}
 
-	var index = 0
-	for cursor.Next(ctx) {
-		record = append(record, &pb.Record{})
-		if err := cursor.Decode(record[index]); err != nil {
-			return nil, err
-		}
-		index++
+	if err = cursor.All(ctx, &records); err != nil {
+		return nil, err
 	}
 
-	return &pb.GetRecordsResponse{Record: record}, nil
+	return &pb.GetRecordsResponse{Record: records}, nil
 }
 
 func (s *ProgressTrackingServer) UpdateRecords(ctx context.Context, request *pb.UpdateRecordsRequest) (*pb.UpdateRecordsResponse, error) {
+	dotEnv.LoadDotEnv()
+	key := os.Getenv("AUTH_KEY")
+	err := jwtToken.CheckToken(key, ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	username, err := jwtToken.UsernameFromToken(key, ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	clientOpts := options.Client().ApplyURI("mongodb://localhost:27017/?connect=direct")
+	client, err := mongo.Connect(context.TODO(), clientOpts)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	defer func() error {
+		if err := client.Disconnect(ctx); err != nil {
+			return err
+		}
+		return nil
+	}()
+
+	coll := client.Database("ProgressTracking").Collection("ProgressTracking")
+
+	muscleGroup := request.GetMuscleGroup()
+	exercise := request.GetExercise()
+	repRange := request.GetReps()
+	sets := request.GetSets()
+
+	filter := bson.D{{"username", username}, {"muscleGroup", muscleGroup}, {"exercise", exercise}, {"reps", repRange}}
+
+	var record *pb.Record
+	res := coll.FindOne(ctx, filter)
+	if err = res.Decode(&record); err != nil {
+		if err == mongo.ErrNoDocuments {
+			return nil, fmt.Errorf("the field that you want to find does not exist") //if the result does not exist, just insert it and return the record
+		}
+		return nil, err
+	}
+	//otherwise just: beforeLastTraining = LastTraining and LastTraining = sets
+
 	return nil, fmt.Errorf("method Registration not implemented")
 }
 
