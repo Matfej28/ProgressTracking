@@ -245,16 +245,26 @@ func (s *ProgressTrackingServer) UpdateRecords(ctx context.Context, request *pb.
 	filter := bson.D{{"username", username}, {"muscleGroup", muscleGroup}, {"exercise", exercise}, {"reps", repRange}}
 
 	var record *pb.Record
+
 	res := coll.FindOne(ctx, filter)
 	if err = res.Decode(&record); err != nil {
 		if err == mongo.ErrNoDocuments {
-			return nil, fmt.Errorf("the field that you want to find does not exist") //if the result does not exist, just insert it and return the record
+			filter = append(filter, primitive.E{"lastTraining", sets})
+
+			_, err := coll.InsertOne(ctx, filter)
+			if err != nil {
+				return nil, err
+			}
+
+			record = &pb.Record{MuscleGroup: muscleGroup, Exercise: exercise, Reps: repRange, LastTraining: sets}
+			return &pb.UpdateRecordsResponse{Record: record}, nil
 		}
 		return nil, err
 	}
-	//otherwise just: beforeLastTraining = LastTraining and LastTraining = sets
 
-	return nil, fmt.Errorf("method Registration not implemented")
+	filter = append(filter, primitive.E{"lastTraining", sets}, primitive.E{"beforeLastTraining", record.LastTraining})
+	record.LastTraining, record.BeforeLastTraining = sets, record.LastTraining
+	return &pb.UpdateRecordsResponse{Record: record}, nil
 }
 
 func main() {

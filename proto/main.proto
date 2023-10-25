@@ -58,7 +58,6 @@ message Record {
     RepRange reps = 3;
     repeated Set lastTraining = 4;
     repeated Set beforeLastTraining = 5;
-    Set pr = 6;
 }
 
 message RepRange {
