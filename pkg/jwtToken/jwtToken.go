@@ -3,7 +3,6 @@ package jwtToken
 import (
 	"context"
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/golang-jwt/jwt"
@@ -16,7 +15,7 @@ type Claims struct {
 	jwt.StandardClaims
 }
 
-func CreateToken(jwtKey string, username string, email string) string {
+func CreateToken(jwtKey string, username string, email string) (string, error) {
 	expirationTime := time.Now().Add(30 * time.Minute)
 	claims := &Claims{
 		Username: username,
@@ -30,10 +29,10 @@ func CreateToken(jwtKey string, username string, email string) string {
 
 	signedToken, err := token.SignedString([]byte(jwtKey)) //signing the token
 	if err != nil {
-		log.Fatal(err)
+		return "", err
 	}
 
-	return signedToken
+	return signedToken, err
 }
 
 func CheckToken(jwtKey string, ctx context.Context) error {

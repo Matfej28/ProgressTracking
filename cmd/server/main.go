@@ -49,16 +49,20 @@ type Record struct {
 }
 
 func (s *ProgressTrackingServer) Registration(ctx context.Context, request *pb.RegistrationRequest) (*pb.RegistrationResponse, error) {
-	dotEnv.LoadDotEnv()
+	err := dotEnv.LoadDotEnv()
+	if err != nil {
+		return nil, err
+	}
+
 	db, err := sql.Open("mysql", fmt.Sprintf("%s:%s@tcp(%s:%s)/%s", os.Getenv("MYSQL_USER"), os.Getenv("MYSQL_PASSWORD"), os.Getenv("MYSQL_HOST"), os.Getenv("MYSQL_PORT"), os.Getenv("MYSQL_DATABASE")))
 	defer db.Close()
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 
 	pingErr := db.Ping()
 	if pingErr != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 
 	username := request.GetUsername()
@@ -68,7 +72,7 @@ func (s *ProgressTrackingServer) Registration(ctx context.Context, request *pb.R
 
 	rows, err := db.Query(fmt.Sprintf("SELECT * FROM `users` WHERE `username`='%s';", username))
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 	if rows.Next() {
 		return nil, fmt.Errorf("user with this username already exists")
@@ -83,7 +87,7 @@ func (s *ProgressTrackingServer) Registration(ctx context.Context, request *pb.R
 
 	rows, err = db.Query(fmt.Sprintf("SELECT * FROM `users` WHERE `email`='%s';", email))
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 	if rows.Next() {
 		return nil, fmt.Errorf("user with this email already exists")
@@ -100,35 +104,50 @@ func (s *ProgressTrackingServer) Registration(ctx context.Context, request *pb.R
 		return nil, fmt.Errorf("password is not confirmed")
 	}
 
-	salt := hashing.GenerateSalt()
-	hashedPassword := hashing.HashPassword([]byte(password), salt)
-	_, err = db.Query(fmt.Sprintf("INSERT INTO `users` (`username`, `email`, `salt`, `hashedpassword`) VALUES ('%s', '%s', '%s', '%s');", username, email, salt, hashedPassword))
+	salt, err := hashing.GenerateSalt()
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 
-	token := jwtToken.CreateToken(os.Getenv("AUTH_KEY"), username, email)
+	hashedPassword, err := hashing.HashPassword([]byte(password), salt)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = db.Query(fmt.Sprintf("INSERT INTO `users` (`username`, `email`, `salt`, `hashedpassword`) VALUES ('%s', '%s', '%s', '%s');", username, email, salt, hashedPassword))
+	if err != nil {
+		return nil, err
+	}
+
+	token, err := jwtToken.CreateToken(os.Getenv("AUTH_KEY"), username, email)
+	if err != nil {
+		return nil, err
+	}
 
 	return &pb.RegistrationResponse{Token: token}, nil
 }
 
 func (s *ProgressTrackingServer) LogIn(ctx context.Context, request *pb.LogInRequest) (*pb.LogInResponse, error) {
-	dotEnv.LoadDotEnv()
+	err := dotEnv.LoadDotEnv()
+	if err != nil {
+		return nil, err
+	}
+
 	db, err := sql.Open("mysql", fmt.Sprintf("%s:%s@tcp(%s:%s)/%s", os.Getenv("MYSQL_USER"), os.Getenv("MYSQL_PASSWORD"), os.Getenv("MYSQL_HOST"), os.Getenv("MYSQL_PORT"), os.Getenv("MYSQL_DATABASE")))
 	defer db.Close()
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 
 	pingErr := db.Ping()
 	if pingErr != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 
 	email := request.GetEmail()
 	rows, err := db.Query(fmt.Sprintf("SELECT `username`, `salt`, `hashedpassword` FROM `users` WHERE `email`='%s';", email))
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 	if !rows.Next() {
 		return nil, fmt.Errorf("incorrect email or password")
@@ -137,7 +156,7 @@ func (s *ProgressTrackingServer) LogIn(ctx context.Context, request *pb.LogInReq
 	var username string
 	var salt, hashedPassword []byte
 	if err := rows.Scan(&username, &salt, &hashedPassword); err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 	rows.Close()
 
@@ -146,15 +165,22 @@ func (s *ProgressTrackingServer) LogIn(ctx context.Context, request *pb.LogInReq
 		return nil, fmt.Errorf("incorrect email or password")
 	}
 
-	token := jwtToken.CreateToken(os.Getenv("AUTH_KEY"), username, email)
+	token, err := jwtToken.CreateToken(os.Getenv("AUTH_KEY"), username, email)
+	if err != nil {
+		return nil, err
+	}
 
 	return &pb.LogInResponse{Token: token}, nil
 }
 
 func (s *ProgressTrackingServer) GetRecords(ctx context.Context, request *pb.GetRecordsRequest) (*pb.GetRecordsResponse, error) {
-	dotEnv.LoadDotEnv()
+	err := dotEnv.LoadDotEnv()
+	if err != nil {
+		return nil, err
+	}
+
 	key := os.Getenv("AUTH_KEY")
-	err := jwtToken.CheckToken(key, ctx)
+	err = jwtToken.CheckToken(key, ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -167,7 +193,7 @@ func (s *ProgressTrackingServer) GetRecords(ctx context.Context, request *pb.Get
 	clientOpts := options.Client().ApplyURI("mongodb://localhost:27017/?connect=direct")
 	client, err := mongo.Connect(context.TODO(), clientOpts)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 
 	defer func() error {
@@ -210,9 +236,13 @@ func (s *ProgressTrackingServer) GetRecords(ctx context.Context, request *pb.Get
 }
 
 func (s *ProgressTrackingServer) UpdateRecords(ctx context.Context, request *pb.UpdateRecordsRequest) (*pb.UpdateRecordsResponse, error) {
-	dotEnv.LoadDotEnv()
+	err := dotEnv.LoadDotEnv()
+	if err != nil {
+		return nil, err
+	}
+
 	key := os.Getenv("AUTH_KEY")
-	err := jwtToken.CheckToken(key, ctx)
+	err = jwtToken.CheckToken(key, ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -225,7 +255,7 @@ func (s *ProgressTrackingServer) UpdateRecords(ctx context.Context, request *pb.
 	clientOpts := options.Client().ApplyURI("mongodb://localhost:27017/?connect=direct")
 	client, err := mongo.Connect(context.TODO(), clientOpts)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 
 	defer func() error {

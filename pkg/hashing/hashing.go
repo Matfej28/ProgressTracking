@@ -2,32 +2,31 @@ package hashing
 
 import (
 	"crypto/rand"
-	"log"
 
 	"golang.org/x/crypto/bcrypt"
 )
 
 const saltSize = 16
 
-func GenerateSalt() []byte {
+func GenerateSalt() ([]byte, error) {
 	var salt = make([]byte, saltSize)
 
 	_, err := rand.Read(salt[:])
 	if err != nil {
-		log.Fatal(err)
+		return []byte{}, err
 	}
 
-	return salt
+	return salt, err
 }
 
-func HashPassword(password, salt []byte) []byte {
+func HashPassword(password, salt []byte) ([]byte, error) {
 	password = append(password, salt...)
 	hashedPassword, err := bcrypt.GenerateFromPassword(password, bcrypt.DefaultCost)
 	if err != nil {
-		log.Fatal(err)
+		return []byte{}, err
 	}
 
-	return hashedPassword
+	return hashedPassword, err
 }
 
 func CheckHashedPassword(hashedPassword, password, salt []byte) bool {
