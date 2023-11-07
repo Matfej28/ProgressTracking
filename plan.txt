@@ -1,1 +1,0 @@
-username(string) musclegroup(string)  exercise(string)  repRange(json array with 2 elements) lastTraining(array json(weight: reps)) beforeLastTraining(array json(weight: reps)) PR(json(weight: reps)

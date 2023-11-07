@@ -41,12 +41,12 @@ func CheckToken(jwtKey string, ctx context.Context) error {
 		return fmt.Errorf("no metadata found in context")
 	}
 
-	tokens := headers.Get("token")
-	if len(tokens) < 1 {
+	headerTokens := headers.Get("token")
+	if len(headerTokens) < 1 {
 		return fmt.Errorf("no token found in metadata")
 	}
 
-	token, err := jwt.ParseWithClaims(tokens[0], &Claims{}, func(token *jwt.Token) (interface{}, error) {
+	token, err := jwt.ParseWithClaims(headerTokens[0], &Claims{}, func(token *jwt.Token) (interface{}, error) {
 		return []byte(jwtKey), nil
 	})
 	if err != nil {
@@ -66,12 +66,12 @@ func UsernameFromToken(jwtKey string, ctx context.Context) (username string, err
 		return "", fmt.Errorf("no metadata found in context")
 	}
 
-	tokens := headers.Get("token")
-	if len(tokens) < 1 {
+	headerTokens := headers.Get("token")
+	if len(headerTokens) < 1 {
 		return "", fmt.Errorf("no token found in metadata")
 	}
 
-	token, err := jwt.ParseWithClaims(tokens[0], &Claims{}, func(token *jwt.Token) (interface{}, error) {
+	token, err := jwt.ParseWithClaims(headerTokens[0], &Claims{}, func(token *jwt.Token) (interface{}, error) {
 		return []byte(jwtKey), nil
 	})
 	if err != nil {

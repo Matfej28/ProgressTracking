@@ -161,7 +161,11 @@ func (s *ProgressTrackingServer) LogIn(ctx context.Context, request *pb.LogInReq
 	rows.Close()
 
 	password := request.GetPassword()
-	if !hashing.CheckHashedPassword(hashedPassword, []byte(password), salt) {
+	res, err := hashing.CheckHashedPassword(hashedPassword, []byte(password), salt)
+	if err != nil {
+		return nil, err
+	}
+	if !res {
 		return nil, fmt.Errorf("incorrect email or password")
 	}
 

@@ -15,7 +15,6 @@ func GenerateSalt() ([]byte, error) {
 	if err != nil {
 		return []byte{}, err
 	}
-
 	return salt, err
 }
 
@@ -29,11 +28,11 @@ func HashPassword(password, salt []byte) ([]byte, error) {
 	return hashedPassword, err
 }
 
-func CheckHashedPassword(hashedPassword, password, salt []byte) bool {
+func CheckHashedPassword(hashedPassword, password, salt []byte) (bool, error) {
 	password = append(password, salt...)
 	err := bcrypt.CompareHashAndPassword(hashedPassword, password)
 	if err != nil {
-		return false
+		return false, err
 	}
-	return true
+	return true, nil
 }
