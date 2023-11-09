@@ -31,7 +31,7 @@ func TestCheckToken(t *testing.T) {
 		t.Errorf("Token checking FAILED: Token creating FAILED: %v", err)
 		return
 	}
-	ctx := metadata.AppendToOutgoingContext(context.Background(), "token", token)
+	ctx := metadata.NewIncomingContext(context.Background(), metadata.Pairs("token", token))
 	err = CheckToken(jwtKey, ctx)
 	if err != nil {
 		t.Errorf("Token checking FAILED: %v", err)
@@ -49,7 +49,7 @@ func TestUsernameFromToken(t *testing.T) {
 		t.Errorf("Token checking FAILED: Token creating FAILED: %v", err)
 		return
 	}
-	ctx := metadata.AppendToOutgoingContext(context.Background(), "token", token)
+	ctx := metadata.NewIncomingContext(context.Background(), metadata.Pairs("token", token))
 	retrievedUsername, err := UsernameFromToken(jwtKey, ctx)
 	if username != retrievedUsername {
 		t.Errorf("Username retrieving from token FAILED: %v", err)
