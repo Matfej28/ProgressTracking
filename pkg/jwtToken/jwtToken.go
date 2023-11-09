@@ -36,7 +36,7 @@ func CreateToken(jwtKey string, username string, email string) (string, error) {
 }
 
 func CheckToken(jwtKey string, ctx context.Context) error {
-	headers, ok := metadata.FromIncomingContext(ctx)
+	headers, ok := metadata.FromOutgoingContext(ctx)
 	if !ok {
 		return fmt.Errorf("no metadata found in context")
 	}
@@ -61,7 +61,7 @@ func CheckToken(jwtKey string, ctx context.Context) error {
 }
 
 func UsernameFromToken(jwtKey string, ctx context.Context) (username string, err error) {
-	headers, ok := metadata.FromIncomingContext(ctx)
+	headers, ok := metadata.FromOutgoingContext(ctx)
 	if !ok {
 		return "", fmt.Errorf("no metadata found in context")
 	}
