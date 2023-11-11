@@ -9,7 +9,7 @@ import (
 	"net/mail"
 	"os"
 
-	pb "github.com/Matfej28/ProgressTracking/proto"
+	pb "github.com/Matfej28/ProgressTracking/internal/proto"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -70,6 +70,7 @@ func (s *ProgressTrackingServer) Registration(ctx context.Context, request *pb.R
 		return nil, fmt.Errorf("too short username: enter at least one symbol")
 	}
 
+	// check if the user with this username already exists
 	rows, err := db.Query(fmt.Sprintf("SELECT * FROM `users` WHERE `username`='%s';", username))
 	if err != nil {
 		return nil, err
@@ -85,6 +86,7 @@ func (s *ProgressTrackingServer) Registration(ctx context.Context, request *pb.R
 		return nil, fmt.Errorf("invalid email")
 	}
 
+	// check if the user with this email already exists
 	rows, err = db.Query(fmt.Sprintf("SELECT * FROM `users` WHERE `email`='%s';", email))
 	if err != nil {
 		return nil, err
@@ -145,6 +147,7 @@ func (s *ProgressTrackingServer) LogIn(ctx context.Context, request *pb.LogInReq
 	}
 
 	email := request.GetEmail()
+
 	rows, err := db.Query(fmt.Sprintf("SELECT `username`, `salt`, `hashedpassword` FROM `users` WHERE `email`='%s';", email))
 	if err != nil {
 		return nil, err
@@ -212,6 +215,8 @@ func (s *ProgressTrackingServer) GetRecords(ctx context.Context, request *pb.Get
 	muscleGroup := request.GetMuscleGroup()
 	exercise := request.GetExercise()
 	repRange := request.GetReps()
+
+	// add filters for the query
 	filter := bson.D{{"username", username}}
 	if muscleGroup != "" {
 		filter = append(filter, primitive.E{"muscleGroup", muscleGroup})
@@ -224,6 +229,8 @@ func (s *ProgressTrackingServer) GetRecords(ctx context.Context, request *pb.Get
 	}
 
 	var records []*pb.Record
+
+	// extract the data from the database
 	cursor, err := coll.Find(context.TODO(), filter)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
@@ -232,6 +239,7 @@ func (s *ProgressTrackingServer) GetRecords(ctx context.Context, request *pb.Get
 		return nil, err
 	}
 
+	// decode the extracted data to a Records struct
 	if err = cursor.All(ctx, &records); err != nil {
 		return nil, err
 	}
@@ -280,9 +288,10 @@ func (s *ProgressTrackingServer) UpdateRecords(ctx context.Context, request *pb.
 
 	var record *pb.Record
 
+	// extract the data from the database
 	res := coll.FindOne(ctx, filter)
 	if err = res.Decode(&record); err != nil {
-		if err == mongo.ErrNoDocuments {
+		if err == mongo.ErrNoDocuments { // if the record does not exist, it is created
 			filter = append(filter, primitive.E{"lastTraining", sets})
 
 			_, err := coll.InsertOne(ctx, filter)
@@ -296,7 +305,13 @@ func (s *ProgressTrackingServer) UpdateRecords(ctx context.Context, request *pb.
 		return nil, err
 	}
 
-	filter = append(filter, primitive.E{"lastTraining", sets}, primitive.E{"beforeLastTraining", record.LastTraining})
+	// update the record
+	updatedRecord := bson.D{{"$set", bson.D{{"lastTraining", sets}, {"beforeLastTraining", record.LastTraining}}}}
+	_, err = coll.UpdateOne(ctx, filter, updatedRecord)
+	if err != nil {
+		return nil, err
+	}
+
 	record.LastTraining, record.BeforeLastTraining = sets, record.LastTraining
 	return &pb.UpdateRecordsResponse{Record: record}, nil
 }
